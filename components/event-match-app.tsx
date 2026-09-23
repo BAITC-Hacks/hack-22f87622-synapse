@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { EXCLUSION_LABELS, type CatalogMeta, type RecommendationResponse } from "@/lib/domain/types";
+import { EXCLUSION_LABELS, type CatalogMeta, type Evidence, type RecommendationResponse } from "@/lib/domain/types";
 
 type FormState = {
   city: string;
@@ -25,6 +25,9 @@ const scenarios: Record<string, FormState> = {
 };
 
 const money = new Intl.NumberFormat("ru-RU");
+const factLabels: Record<Evidence["kind"], string> = {
+  format: "Формат", calendar: "Дата", price: "Бюджет", language: "Язык", duration: "Длительность", description: "Из профиля",
+};
 export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
   const [form, setForm] = useState<FormState>(scenarios.A);
   const [result, setResult] = useState<RecommendationResponse | null>(null);
@@ -78,29 +81,31 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
   }
 
   return (
-    <main>
-      <header className="hero">
-        <div className="brand-mark" aria-hidden="true">EM</div>
-        <div>
-          <p className="eyebrow">Кейс #79-lite · {meta.profileCount} профилей</p>
-          <h1>EventMatch</h1>
-          <p className="lede">До трёх подрядчиков из каталога — с проверкой календаря, бюджета и понятными основаниями каждого выбора.</p>
-        </div>
-        <div className="trust-note"><span aria-hidden="true">✓</span> Отбор работает без AI и не ослабляет условия</div>
+    <main className="site-shell">
+      <header className="site-header">
+        <div className="identity"><span className="brand-mark" aria-hidden="true">✳</span><strong>EventMatch</strong></div>
+        <span className="header-note">Подрядчики для вашего события</span>
       </header>
 
-      <section className="workspace" aria-label="Подбор подрядчиков">
-        <aside className="search-panel">
-          <div className="section-heading">
-            <p className="step">01</p>
-            <div><h2>Условия события</h2><p>Обязательные поля отмечены звёздочкой.</p></div>
-          </div>
+      <section className="hero" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <p className="eyebrow">События начинаются здесь <span aria-hidden="true">✦</span> {meta.profileCount} профилей в каталоге</p>
+          <h1 id="hero-title">Найдём команду <em>для вашего события.</em></h1>
+          <p className="lede">Укажите город, дату и бюджет. Мы покажем до трёх подрядчиков и конкретные причины, почему они подходят.</p>
+          <a className="hero-link" href="#search-form">Начать подбор <span aria-hidden="true">↗</span></a>
+        </div>
+        <div className="event-art" aria-hidden="true">
+          <div className="art-card art-wedding"><span className="art-orbit" /><span className="art-center" /><span className="art-caption">Свадьба</span></div>
+          <div className="art-card art-corporate"><span className="art-beam beam-one" /><span className="art-beam beam-two" /><span className="art-caption">Корпоратив</span></div>
+          <div className="art-card art-conference"><span className="art-sun" /><span className="art-arch arch-one" /><span className="art-arch arch-two" /><span className="art-caption">Конференция</span></div>
+        </div>
+      </section>
 
-          <div className="demo-block">
-            <span>Демо-сценарии</span>
-            <div className="scenario-list" aria-label="Демо-сценарии A–H">
-              {Object.keys(scenarios).map((key) => <button type="button" className="scenario-button" key={key} onClick={() => chooseScenario(key)}>{key}</button>)}
-            </div>
+      <section className="workspace" aria-label="Подбор подрядчиков">
+        <section className="search-panel" id="search-form">
+          <div className="section-heading">
+            <p className="step">01 / Ваш запрос</p>
+            <div><h2>Кого ищем?</h2><p>Заполните пять обязательных полей. Язык и длительность можно добавить для точного совпадения.</p></div>
           </div>
 
           <form onSubmit={(event) => { event.preventDefault(); void runSearch(); }}>
@@ -110,21 +115,30 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
               <label>Тип мероприятия *<select value={form.eventType} onChange={(e) => update("eventType", e.target.value)}>{meta.eventTypes.map((eventType) => <option key={eventType}>{eventType}</option>)}</select></label>
               <label>Категория *<select value={form.category} onChange={(e) => update("category", e.target.value)}>{meta.categories.map((category) => <option key={category}>{category}</option>)}</select></label>
               <label>Бюджет на подрядчика, ₸ *<input type="number" min="0" step="1" required value={form.budgetKzt} onChange={(e) => update("budgetKzt", e.target.value)} /></label>
-              <label>Длительность, ч.<input type="number" min="0.5" step="0.5" value={form.durationHours} onChange={(e) => update("durationHours", e.target.value)} placeholder="Не ограничивать" /></label>
-              <label className="wide">Язык<select value={form.language} onChange={(e) => update("language", e.target.value)}><option value="">Не ограничивать</option>{meta.languages.map((language) => <option key={language}>{language}</option>)}</select></label>
             </div>
-            <button className="submit-button" type="submit" disabled={loading}>{loading ? "Проверяем каталог…" : "Подобрать подрядчиков"}</button>
+            <div className="optional-fields"><p><strong>Дополнительные условия</strong><span>По желанию</span></p><div className="optional-grid">
+              <label>Язык<select value={form.language} onChange={(e) => update("language", e.target.value)}><option value="">Любой</option>{meta.languages.map((language) => <option key={language}>{language}</option>)}</select></label>
+              <label>Длительность, ч.<input type="number" min="0.5" step="0.5" value={form.durationHours} onChange={(e) => update("durationHours", e.target.value)} placeholder="Без ограничения" /></label>
+            </div></div>
+            <div className="form-footer"><button className="submit-button" type="submit" disabled={loading}>{loading ? "Проверяем каталог…" : "Подобрать подрядчиков"} <span aria-hidden="true">↗</span></button><p>Проверяем дату, формат и цену по данным профилей.</p></div>
           </form>
-        </aside>
+          <div className="demo-block">
+            <span>Попробовать демо <span aria-hidden="true">↗</span></span>
+            <div className="scenario-list" aria-label="Демо-сценарии A–H">
+              {Object.keys(scenarios).map((key) => <button type="button" className="scenario-button" key={key} onClick={() => chooseScenario(key)}>{key}</button>)}
+            </div>
+            <small>Сценарии A–H запускают настоящий подбор.</small>
+          </div>
+        </section>
 
         <section className="results-panel" aria-live="polite" aria-busy={loading}>
           <div className="section-heading">
-            <p className="step">02</p>
-            <div><h2>Результат</h2><p>Все варианты проходят условия. Порядок — по стартовой цене.</p></div>
+            <p className="step">02 / Подходящие варианты</p>
+            <div><h2>Результат подбора</h2><p>Только профили, прошедшие условия. Порядок — по стартовой цене, затем по ID.</p></div>
           </div>
 
           {error && <div className="state-card error" role="alert"><h3>Подбор не выполнен</h3><p>{error}</p></div>}
-          {!result && !error && <div className="state-card empty"><h3>Задайте условия</h3><p>Или запустите один из сценариев A–H — каждый обращается к настоящему backend.</p></div>}
+          {!result && !error && <div className="state-card empty"><span className="state-icon" aria-hidden="true">✳</span><h3>Ваши варианты появятся здесь</h3><p>Нажмите «Подобрать подрядчиков» или выберите демо-сценарий выше.</p></div>}
           {result && (
             <div className="result-stack">
               <div className={`summary ${result.status}`}>
@@ -134,25 +148,24 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
                 <small>{result.ai.note}</small>
               </div>
 
-              {result.cards.map((card, index) => (
+              <div className="cards-grid">{result.cards.map((card, index) => (
                 <article className="vendor-card" key={card.id}>
-                  <div className="rank">{String(index + 1).padStart(2, "0")}</div>
+                  <div className="rank">{String(index + 1).padStart(2, "0")} / {String(result.cards.length).padStart(2, "0")}</div>
                   <div className="vendor-main">
                     <div className="vendor-header">
                       <div><p className="vendor-id">{card.id} · {card.selectedCategory}</p><h3>{card.name}</h3><p>{card.city} · {card.categories.join(" · ")}</p></div>
-                      <div className="price"><span>от</span>{money.format(card.priceFromKzt)} ₸</div>
                     </div>
-                    <p className="explanation">{card.explanation}</p>
+                    <div className="price"><span>Стартовая цена</span><strong>от {money.format(card.priceFromKzt)} ₸</strong></div>
                     <div className="flag-list">
-                      <span className="flag success">Свободен {result.request.date}</span>
                       <span className="flag">{card.flags.synthetic ? "Синтетический профиль исходного датасета" : "Исходный анонимизированный профиль"}</span>
                       {card.flags.priceImputed && <span className="flag warning" title="Цена была дополнена при подготовке исходного набора">Цена дополнена</span>}
                       {card.flags.cityImputed && <span className="flag warning" title="Город был дополнен при подготовке исходного набора">Город дополнен</span>}
                     </div>
-                    <details><summary>Почему этот вариант</summary><ul>{card.evidence.map((item) => <li key={item.id}><span>{item.text}</span><code>{item.source.field}</code></li>)}</ul></details>
+                    <div className="why-block"><h4>Почему подходит <span aria-hidden="true">✳</span></h4><ul>{card.evidence.filter((item) => item.kind !== "description").map((item) => <li key={item.id}><strong>{factLabels[item.kind]}</strong><span>{item.text}</span></li>)}</ul></div>
+                    <details><summary>Почему этот вариант</summary><p className="explanation">{card.explanation}</p><ul>{card.evidence.map((item) => <li key={item.id}><span>{factLabels[item.kind]} · источник: <code>{item.source.field}</code></span>{item.kind === "description" && <span>{item.text}</span>}</li>)}</ul></details>
                   </div>
                 </article>
-              ))}
+              ))}</div>
 
               {result.cards.length < 3 && <Diagnostics result={result} onBudget={(budget) => { const next = { ...form, budgetKzt: String(budget) }; setForm(next); void runSearch(next); }} />}
               <p className="disclaimer">Цены указаны от. Итоговая стоимость не определена. Рекомендация не является бронированием.</p>
@@ -160,7 +173,7 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
           )}
         </section>
       </section>
-      <footer>Версия данных: <code>{meta.datasetVersion.slice(0, 19)}…</code></footer>
+      <footer><span>EventMatch · подбор по фактам</span><span>Версия данных: <code>{meta.datasetVersion.slice(0, 19)}…</code></span></footer>
     </main>
   );
 }
