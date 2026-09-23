@@ -173,7 +173,7 @@ npm run benchmark
 
 Финальный прогон 23.09.2026 на Windows, Node 24.17.0: dataset — 66 профилей и ожидаемый SHA-256; Vitest — 30/30; ESLint — без ошибок; строгий `tsc --noEmit` — успешно; production build — успешно (страница и два API-маршрута); Playwright — 10/10 (desktop и 375 px, включая reduced motion); проверка документации — успешно. Ledger `unlazy` подтвердил 6/6 критериев.
 
-Последний GitHub Actions run [`35844687347`](https://github.com/BAITC-Hacks/hack-22f87622-synapse/actions/runs/35844687347) не начал ни одного шага: GitHub заблокировал job сообщением `The job was not started because your account is locked due to a billing issue`. Это ограничение аккаунта организации, а не падение команды проекта; локально выполнен тот же набор проверок. Workflow не отключён и запустится после восстановления runner-доступа.
+GitHub Actions runs, включая подтверждённый run [`35844687347`](https://github.com/BAITC-Hacks/hack-22f87622-synapse/actions/runs/35844687347), не начинают ни одного шага: GitHub блокирует job сообщением `The job was not started because your account is locked due to a billing issue`. Это ограничение аккаунта организации, а не падение команды проекта; локально выполнен тот же набор проверок. Workflow не отключён и запустится после восстановления runner-доступа.
 
 `npm run benchmark` в локальном fallback-режиме (без сети, один процесс) измерил первый вызов вместе с чтением/разбором CSV в 24.281 мс; 1000 тёплых вызовов заняли 27.101 мс, в среднем 0.0271 мс. Это измерение доменного модуля, а не гарантия HTTP/AI-задержки.
 
