@@ -17,7 +17,8 @@ describe("normalizeRequest", () => {
   });
 
   it("rejects guessed catalog values and invalid numeric input", () => {
-    expect(() => normalizeRequest({ ...valid, category: "Ведущий церемонии" }, meta)).toThrow(/отсутствует в каталоге/);
+    expect(normalizeRequest({ ...valid, category: "Ведущий церемонии" }, meta).category).toBe("Ведущий церемонии");
+    expect(() => normalizeRequest({ ...valid, category: "Ведущий-переводчик" }, meta)).toThrow(/отсутствует в каталоге/);
     expect(() => normalizeRequest({ ...valid, budgetKzt: -1 }, meta)).toThrow(RequestValidationError);
     expect(() => normalizeRequest({ ...valid, budgetKzt: 1.5 }, meta)).toThrow(RequestValidationError);
     expect(() => normalizeRequest({ ...valid, durationHours: 0 }, meta)).toThrow(RequestValidationError);

@@ -4,6 +4,7 @@ import { loadCatalog } from "@/lib/domain/catalog";
 import { recommend } from "@/lib/domain/recommend";
 
 const response = recommend(loadCatalog(), { city: "Алматы", date: "2026-10-12", eventType: "свадьба", category: "Флорист", budgetKzt: 300000, language: "русский", durationHours: 6 });
+const emptyResponse = recommend(loadCatalog(), { city: "Алматы", date: "2026-10-12", eventType: "корпоратив", category: "Ведущий", budgetKzt: 450000, language: "русский", durationHours: 6 });
 
 function validSelection(): EvidenceSelection {
   return { cards: response.cards.map((card) => ({ profileId: card.id, evidenceIds: [card.evidence[2]!.id], accent: "price" as const })), diagnosisFocus: "none" };
@@ -19,7 +20,16 @@ describe("AI evidence safety", () => {
     expect(validateSelection(response, { ...valid, cards: [{ ...valid.cards[0], profileId: "missing" }, valid.cards[1]] })).toBeNull();
     expect(validateSelection(response, { ...valid, cards: [{ ...valid.cards[0], evidenceIds: [response.cards[1]!.evidence[0]!.id] }, valid.cards[1]] })).toBeNull();
     expect(validateSelection(response, { ...valid, cards: [{ ...valid.cards[0], evidenceIds: [valid.cards[0]!.evidenceIds[0]!, valid.cards[0]!.evidenceIds[0]!] }, valid.cards[1]] })).toBeNull();
+    expect(validateSelection(response, { ...valid, cards: [{ ...valid.cards[0], accent: "duration" }, valid.cards[1]] })).toBeNull();
     expect(validateSelection(response, { arbitrary: "json" })).toBeNull();
+  });
+
+  it("accepts only a supported empty-result diagnosis and renders it from server facts", () => {
+    const selection: EvidenceSelection = { cards: [], diagnosisFocus: "budget" };
+    expect(validateSelection(emptyResponse, selection)).toEqual(selection);
+    expect(validateSelection(emptyResponse, { cards: [], diagnosisFocus: "category" })).toBeNull();
+    const enhanced = applySelection(emptyResponse, selection, "ai", "test-model");
+    expect(enhanced.summary.replaceAll("\u00a0", " ")).toContain("500 000 ₸");
   });
 
   it("changes only explanation text, never selected IDs or order", () => {

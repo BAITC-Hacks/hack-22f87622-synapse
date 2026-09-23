@@ -66,7 +66,12 @@ export function buildEvidence(profile: Profile, request: RecommendationRequest):
 export function renderExplanation(evidence: readonly Evidence[], selectedIds?: readonly string[]): string {
   const selected = selectedIds?.length
     ? selectedIds.map((id) => evidence.find((item) => item.id === id)).filter((item): item is Evidence => Boolean(item))
-    : evidence.filter((item) => ["price", "duration", "language", "description"].includes(item.kind)).slice(0, 2);
+    : [
+        evidence.find((item) => item.kind === "price"),
+        evidence.find((item) => item.kind === "description") ??
+          evidence.find((item) => item.kind === "duration") ??
+          evidence.find((item) => item.kind === "language"),
+      ].filter((item): item is Evidence => Boolean(item));
   const useful = selected.length ? selected.slice(0, 2) : evidence.slice(0, 2);
   return useful.map((item) => item.text).join(" ");
 }

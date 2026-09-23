@@ -41,8 +41,12 @@ describe("reference scenarios A-H", () => {
 
   it("C-D: keeps null max_hours eligible and returns only available florists", () => {
     const request: RecommendationRequest = { city: "Алматы", date: "2026-10-12", eventType: "свадьба", category: "Флорист", budgetKzt: 300000, language: "русский", durationHours: 6 };
-    expect(ids(request)).toEqual(["HK-39372", "HK-90001"]);
-    expect(ids({ ...request, date: "2026-11-14" })).toEqual(["HK-90001"]);
+    const sparse = recommend(catalog, request);
+    expect(sparse.cards.map((card) => card.id)).toEqual(["HK-39372", "HK-90001"]);
+    expect(sparse.summary).toContain("только 2 профиля");
+    const constrained = recommend(catalog, { ...request, date: "2026-11-14" });
+    expect(constrained.cards.map((card) => card.id)).toEqual(["HK-90001"]);
+    expect(constrained.summary).toContain("категория редкая");
   });
 
   it("E: distinguishes a missing category in the selected city", () => {

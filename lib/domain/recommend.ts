@@ -1,5 +1,6 @@
 import { buildEvidence, renderExplanation } from "./evidence";
 import {
+  EXCLUSION_ORDER,
   RANKING_VERSION,
   type Catalog,
   type ExclusionCode,
@@ -9,8 +10,6 @@ import {
   type RecommendationRequest,
   type RecommendationResponse,
 } from "./types";
-
-const primaryOrder: readonly ExclusionCode[] = ["date", "format", "budget", "language", "duration"];
 
 function reasonsFor(profile: Profile, request: RecommendationRequest): readonly ExclusionReason[] {
   const reasons: ExclusionReason[] = [];
@@ -44,7 +43,7 @@ function cardFor(profile: Profile, request: RecommendationRequest): Recommendati
 }
 
 function emptyCounts(): Record<ExclusionCode, number> {
-  return { date: 0, format: 0, budget: 0, language: 0, duration: 0 };
+  return Object.fromEntries(EXCLUSION_ORDER.map((code) => [code, 0])) as Record<ExclusionCode, number>;
 }
 
 export function recommend(catalog: Catalog, request: RecommendationRequest): RecommendationResponse {
@@ -62,7 +61,7 @@ export function recommend(catalog: Catalog, request: RecommendationRequest): Rec
     .map((item) => ({
       profileId: item.profile.id,
       reasons: item.reasons,
-      primaryReason: primaryOrder.find((code) => item.reasons.some((reason) => reason.code === code)) ?? null,
+      primaryReason: EXCLUSION_ORDER.find((code) => item.reasons.some((reason) => reason.code === code)) ?? null,
     }));
   const primaryCounts = emptyCounts();
   const overlappingCounts = emptyCounts();
@@ -90,8 +89,12 @@ export function recommend(catalog: Catalog, request: RecommendationRequest): Rec
       ? `В городе ${request.city} нет профилей категории «${request.category}».`
       : status === "no_matches"
         ? "Категория в городе есть, но все профили исключены заданными условиями."
-        : eligible.length < 3
-          ? `Найдено ${eligible.length}: меньше трёх вариантов проходит все условия.`
+        : eligible.length < 3 && candidates.length < 3 && exclusions.length > 0
+          ? `Найдено ${eligible.length}: категория редкая, и часть профилей исключена условиями.`
+          : eligible.length < 3 && candidates.length < 3
+            ? `Найдено ${eligible.length}: в городе только ${candidates.length} профиля этой категории, и они проходят условия.`
+            : eligible.length < 3
+              ? `Найдено ${eligible.length}: ограничения оставили меньше трёх вариантов.`
           : `Найдено ${eligible.length}; показаны первые три по стартовой цене.`;
   return {
     request,

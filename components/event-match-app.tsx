@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { CatalogMeta, RecommendationResponse } from "@/lib/domain/types";
+import { EXCLUSION_LABELS, type CatalogMeta, type RecommendationResponse } from "@/lib/domain/types";
 
 type FormState = {
   city: string;
@@ -25,8 +25,6 @@ const scenarios: Record<string, FormState> = {
 };
 
 const money = new Intl.NumberFormat("ru-RU");
-const reasonLabels = { date: "заняты на дату", format: "не работают с форматом", budget: "выше бюджета", language: "нет языка", duration: "не хватает длительности" } as const;
-
 export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
   const [form, setForm] = useState<FormState>(scenarios.A);
   const [result, setResult] = useState<RecommendationResponse | null>(null);
@@ -156,7 +154,7 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
                 </article>
               ))}
 
-              {result.cards.length === 0 && <Diagnostics result={result} onBudget={(budget) => { const next = { ...form, budgetKzt: String(budget) }; setForm(next); void runSearch(next); }} />}
+              {result.cards.length < 3 && <Diagnostics result={result} onBudget={(budget) => { const next = { ...form, budgetKzt: String(budget) }; setForm(next); void runSearch(next); }} />}
               <p className="disclaimer">Цены указаны от. Итоговая стоимость не определена. Рекомендация не является бронированием.</p>
             </div>
           )}
@@ -168,11 +166,12 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
 }
 
 function Diagnostics({ result, onBudget }: Readonly<{ result: RecommendationResponse; onBudget: (budget: number) => void }>) {
-  const entries = Object.entries(result.diagnosis.primaryCounts).filter(([, count]) => count > 0) as [keyof typeof reasonLabels, number][];
+  const entries = Object.entries(result.diagnosis.primaryCounts).filter(([, count]) => count > 0) as [keyof typeof EXCLUSION_LABELS, number][];
   return (
     <div className="state-card diagnostic">
-      <h3>{result.status === "no_category_in_city" ? "Категории нет в городе" : "Что исключило кандидатов"}</h3>
-      {entries.length > 0 && <ul>{entries.map(([reason, count]) => <li key={reason}>{reasonLabels[reason]}: {count}</li>)}</ul>}
+      <h3>{result.status === "no_category_in_city" ? "Категории нет в городе" : result.status === "matched" ? "Почему вариантов меньше трёх" : "Что исключило кандидатов"}</h3>
+      {result.status === "matched" && result.counts.cityCategoryCandidates < 3 && <p>В городе найдено только {result.counts.cityCategoryCandidates} профиля выбранной категории.</p>}
+      {entries.length > 0 && <ul>{entries.map(([reason, count]) => <li key={reason}>{EXCLUSION_LABELS[reason]}: {count}</li>)}</ul>}
       {result.diagnosis.budgetSuggestion && <div className="budget-tip"><p>Если поднять бюджет на {money.format(result.diagnosis.budgetSuggestion.increaseByKzt)} ₸, появится минимум один вариант.</p><button type="button" onClick={() => onBudget(result.diagnosis.budgetSuggestion!.minimumBudgetKzt)}>Проверить бюджет {money.format(result.diagnosis.budgetSuggestion.minimumBudgetKzt)} ₸</button></div>}
     </div>
   );

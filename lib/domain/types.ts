@@ -48,7 +48,15 @@ export type RecommendationRequest = Readonly<{
   language?: string;
 }>;
 
-export type ExclusionCode = "date" | "format" | "budget" | "language" | "duration";
+export const EXCLUSION_ORDER = ["date", "format", "budget", "language", "duration"] as const;
+export type ExclusionCode = (typeof EXCLUSION_ORDER)[number];
+export const EXCLUSION_LABELS: Readonly<Record<ExclusionCode, string>> = {
+  date: "заняты на дату",
+  format: "не работают с форматом",
+  budget: "выше бюджета",
+  language: "нет языка",
+  duration: "не хватает длительности",
+};
 
 export type ExclusionReason = Readonly<{
   code: ExclusionCode;

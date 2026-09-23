@@ -1,7 +1,7 @@
 import { Agent, run, tool } from "@openai/agents";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { EXPLANATION_VERSION, type AiMode, type RecommendationResponse } from "@/lib/domain/types";
+import { EXCLUSION_ORDER, EXPLANATION_VERSION, type AiMode, type RecommendationResponse } from "@/lib/domain/types";
 import { renderExplanation } from "@/lib/domain/evidence";
 
 const DEFAULT_MODEL = "gpt-6-luna";
@@ -20,7 +20,7 @@ const selectionSchema = z
         })
         .strict(),
     ),
-    diagnosisFocus: z.enum(["date", "format", "budget", "language", "duration", "category", "none"]),
+    diagnosisFocus: z.enum([...EXCLUSION_ORDER, "category", "none"]),
   })
   .strict();
 
@@ -56,11 +56,18 @@ export function validateSelection(response: RecommendationResponse, input: unkno
     if (!card || new Set(selectedCard.evidenceIds).size !== selectedCard.evidenceIds.length) return null;
     const allowed = new Set(card.evidence.map((item) => item.id));
     if (selectedCard.evidenceIds.some((id) => !allowed.has(id))) return null;
+    if (!selectedCard.evidenceIds.some((id) => card.evidence.find((item) => item.id === id)?.kind === selectedCard.accent)) return null;
     for (const evidenceId of selectedCard.evidenceIds) {
       const evidence = card.evidence.find((item) => item.id === evidenceId);
       if (evidence?.source.quote && !evidence.text.includes(evidence.source.quote)) return null;
     }
   }
+  if (response.status === "matched" && selection.diagnosisFocus !== "none") return null;
+  if (response.status === "no_category_in_city" && selection.diagnosisFocus !== "category") return null;
+  if (
+    response.status === "no_matches" &&
+    (selection.diagnosisFocus === "none" || selection.diagnosisFocus === "category" || response.diagnosis.overlappingCounts[selection.diagnosisFocus] === 0)
+  ) return null;
   return selection;
 }
 
@@ -72,9 +79,30 @@ export function applySelection(
 ): RecommendationResponse {
   const cards = response.cards.map((card) => {
     const selected = selection.cards.find((item) => item.profileId === card.id);
-    return selected ? { ...card, explanation: renderExplanation(card.evidence, selected.evidenceIds) } : card;
+    if (!selected) return card;
+    const orderedIds = [...selected.evidenceIds].sort((left, right) => {
+      const leftAccent = card.evidence.find((item) => item.id === left)?.kind === selected.accent ? 0 : 1;
+      const rightAccent = card.evidence.find((item) => item.id === right)?.kind === selected.accent ? 0 : 1;
+      return leftAccent - rightAccent;
+    });
+    return { ...card, explanation: renderExplanation(card.evidence, orderedIds) };
   });
-  return { ...response, cards, ai: { mode, model, note: aiNote(mode) } };
+  const diagnosticSummary = (() => {
+    if (response.status === "matched" || selection.diagnosisFocus === "none") return response.summary;
+    if (selection.diagnosisFocus === "category") return response.summary;
+    if (selection.diagnosisFocus === "budget" && response.diagnosis.budgetSuggestion) {
+      return `Никто не проходит все условия. Минимальный полезный бюджет — ${response.diagnosis.budgetSuggestion.minimumBudgetKzt.toLocaleString("ru-RU")} ₸.`;
+    }
+    const messages = {
+      date: "Одно из подтверждённых ограничений — занятость кандидатов на выбранную дату.",
+      format: "Одно из подтверждённых ограничений — выбранный формат мероприятия.",
+      budget: "Одно из подтверждённых ограничений — заданный бюджет.",
+      language: "Одно из подтверждённых ограничений — выбранный язык.",
+      duration: "Одно из подтверждённых ограничений — требуемая длительность.",
+    } as const;
+    return messages[selection.diagnosisFocus];
+  })();
+  return { ...response, cards, summary: diagnosticSummary, ai: { mode, model, note: aiNote(mode) } };
 }
 
 function cacheKey(response: RecommendationResponse, model: string): string {
@@ -154,7 +182,11 @@ export async function enhanceWithAi(response: RecommendationResponse, options: E
   const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL;
   const key = cacheKey(response, model);
   const cached = cache.get(key);
-  if (cached) return applySelection(response, cached, "ai_cache", model);
+  if (cached) {
+    cache.delete(key);
+    cache.set(key, cached);
+    return applySelection(response, cached, "ai_cache", model);
+  }
   if (activeRuns >= MAX_CONCURRENT_RUNS) return withMode(response, "fallback_error", model);
 
   const controller = new AbortController();
