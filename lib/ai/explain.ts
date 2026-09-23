@@ -1,5 +1,3 @@
-import "server-only";
-
 import { Agent, run, tool } from "@openai/agents";
 import { z } from "zod";
 import { createHash } from "node:crypto";
@@ -141,7 +139,16 @@ async function selectWithAgent(response: RecommendationResponse, model: string, 
   return result.finalOutput;
 }
 
-export async function enhanceWithAi(response: RecommendationResponse): Promise<RecommendationResponse> {
+type EnhanceOptions = Readonly<{
+  selector?: (response: RecommendationResponse, model: string, signal: AbortSignal) => Promise<unknown>;
+  timeoutMs?: number;
+}>;
+
+export function clearAiCacheForTests(): void {
+  cache.clear();
+}
+
+export async function enhanceWithAi(response: RecommendationResponse, options: EnhanceOptions = {}): Promise<RecommendationResponse> {
   if (process.env.AI_ENABLED === "false") return withMode(response, "fallback_disabled", null);
   if (!process.env.OPENAI_API_KEY) return withMode(response, "fallback_no_key", null);
   const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL;
@@ -155,10 +162,10 @@ export async function enhanceWithAi(response: RecommendationResponse): Promise<R
   const timer = setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, AI_TIMEOUT_MS);
+  }, options.timeoutMs ?? AI_TIMEOUT_MS);
   activeRuns += 1;
   try {
-    const output = await selectWithAgent(response, model, controller.signal);
+    const output = await (options.selector ?? selectWithAgent)(response, model, controller.signal);
     const selection = validateSelection(response, output);
     if (!selection) return withMode(response, "fallback_invalid", model);
     remember(key, selection);
