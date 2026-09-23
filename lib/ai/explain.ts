@@ -191,13 +191,20 @@ export async function enhanceWithAi(response: RecommendationResponse, options: E
 
   const controller = new AbortController();
   let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, options.timeoutMs ?? AI_TIMEOUT_MS);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      reject(new Error("AI deadline exceeded"));
+      controller.abort();
+    }, options.timeoutMs ?? AI_TIMEOUT_MS);
+  });
   activeRuns += 1;
+  const operation = Promise.resolve().then(() => (options.selector ?? selectWithAgent)(response, model, controller.signal));
+  // Keep the concurrency slot until the provider actually stops, even after timeout.
+  void operation.then(() => { activeRuns -= 1; }, () => { activeRuns -= 1; });
   try {
-    const output = await (options.selector ?? selectWithAgent)(response, model, controller.signal);
+    const output = await Promise.race([operation, deadline]);
     const selection = validateSelection(response, output);
     if (!selection) return withMode(response, "fallback_invalid", model);
     remember(key, selection);
@@ -205,7 +212,6 @@ export async function enhanceWithAi(response: RecommendationResponse, options: E
   } catch {
     return withMode(response, timedOut ? "fallback_timeout" : "fallback_error", model);
   } finally {
-    activeRuns -= 1;
     clearTimeout(timer);
   }
 }

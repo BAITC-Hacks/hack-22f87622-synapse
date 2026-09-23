@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applySelection, clearAiCacheForTests, enhanceWithAi, validateSelection, type EvidenceSelection } from "@/lib/ai/explain";
 import { loadCatalog } from "@/lib/domain/catalog";
 import { recommend } from "@/lib/domain/recommend";
@@ -11,6 +11,25 @@ function validSelection(): EvidenceSelection {
 }
 
 describe("AI evidence safety", () => {
+  it("returns fallback by the deadline even when the provider ignores cancellation", async () => {
+    vi.useFakeTimers();
+    let release!: (value: unknown) => void;
+    const provider = new Promise<unknown>((resolve) => { release = resolve; });
+    let mode: string | undefined;
+    const pending = enhanceWithAi(response, { timeoutMs: 20, selector: async () => provider })
+      .then((result) => { mode = result.ai.mode; return result; });
+    try {
+      await vi.advanceTimersByTimeAsync(21);
+      expect(mode).toBe("fallback_timeout");
+    } finally {
+      release(validSelection());
+      await pending;
+      vi.useRealTimers();
+    }
+    // A late provider response must not populate the cache.
+    expect((await enhanceWithAi(response, { selector: async () => { throw new Error("offline"); } })).ai.mode).toBe("fallback_error");
+  });
+
   beforeEach(() => { clearAiCacheForTests(); process.env.OPENAI_API_KEY = "test-only"; process.env.OPENAI_MODEL = "test-model"; process.env.AI_ENABLED = "true"; });
   afterEach(() => { delete process.env.OPENAI_API_KEY; delete process.env.OPENAI_MODEL; delete process.env.AI_ENABLED; });
 

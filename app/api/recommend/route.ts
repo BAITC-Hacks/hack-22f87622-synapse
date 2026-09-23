@@ -9,6 +9,29 @@ export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 8_192;
 
+async function readBoundedBody(request: Request): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        // Do not wait for a client or transport that ignores cancellation.
+        void reader.cancel().catch(() => {});
+        return null;
+      }
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks, size).toString("utf8");
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   if (!allowRequest(ip)) {
@@ -19,8 +42,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "request_too_large", message: "Запрос слишком большой." }, { status: 413 });
   }
   try {
-    const bodyText = await request.text();
-    if (Buffer.byteLength(bodyText, "utf8") > MAX_BODY_BYTES) {
+    const bodyText = await readBoundedBody(request);
+    if (bodyText === null) {
       return NextResponse.json({ error: "request_too_large", message: "Запрос слишком большой." }, { status: 413 });
     }
     let body: unknown;

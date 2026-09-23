@@ -66,6 +66,7 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
     const nextController = new AbortController();
     controller.current = nextController;
     setLoading(true);
+    setResult(null);
     setError(null);
     try {
       const payload = {
@@ -149,7 +150,7 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
           </div>
         </section>
 
-        <aside className="hero-visual" aria-label="Атмосфера мероприятия"><Image src="/event-atmosphere.png" alt="Атмосфера концерта на открытом воздухе" fill sizes="(max-width: 760px) 100vw, 38vw" fetchPriority="high" className="hero-photo" /><div className="hero-visual-note"><span>EventMatch</span><strong>Идея события ближе, когда команда подходит.</strong><small>Иллюстрация атмосферы мероприятия</small></div></aside>
+        <aside className="hero-visual" aria-label="Атмосфера мероприятия"><Image src="/event-atmosphere.png" alt="Атмосфера концерта на открытом воздухе" fill sizes="(max-width: 760px) 100vw, 38vw" loading="eager" fetchPriority="high" className="hero-photo" /><div className="hero-visual-note"><span>EventMatch</span><strong>Идея события ближе, когда команда подходит.</strong><small>Иллюстрация атмосферы мероприятия</small></div></aside>
         </div>
 
         <section className="results-panel" id="results" aria-live="polite" aria-busy={loading}>
@@ -159,7 +160,8 @@ export function EventMatchApp({ meta }: Readonly<{ meta: CatalogMeta }>) {
           </div>
 
           {error && <div className="state-card error" role="alert"><h3>Подбор не выполнен</h3><p>{error}</p></div>}
-          {!result && !error && <div className="state-card empty"><span className="state-icon" aria-hidden="true">✳</span><h3>Ваши варианты появятся здесь</h3><p>Нажмите «Подобрать подрядчиков» или выберите демо-сценарий выше.</p></div>}
+          {loading && <div className="state-card"><h3>Проверяем условия подбора</h3><p>Сверяем дату, формат и бюджет с каталогом.</p></div>}
+          {!loading && !result && !error && <div className="state-card empty"><span className="state-icon" aria-hidden="true">✳</span><h3>Ваши варианты появятся здесь</h3><p>Нажмите «Подобрать подрядчиков» или выберите демо-сценарий выше.</p></div>}
           {result && (
             <div className="result-stack">
               <div className={`summary ${result.status}`}>

@@ -96,6 +96,7 @@ export function parseCatalogCsv(buffer: Buffer | string): Catalog {
   } catch (error) {
     throw new CatalogDataError(`CSV не разобран: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
   }
+  if (records.length === 0) throw new CatalogDataError("Каталог не содержит профилей");
 
   const ids = new Set<string>();
   const profiles = records.map((record, index): Profile => {
@@ -136,7 +137,14 @@ export function parseCatalogCsv(buffer: Buffer | string): Catalog {
 let cachedCatalog: Catalog | undefined;
 
 export function loadCatalog(): Catalog {
-  cachedCatalog ??= parseCatalogCsv(readFileSync(DATASET_PATH));
+  if (cachedCatalog) return cachedCatalog;
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(DATASET_PATH);
+  } catch {
+    throw new CatalogDataError("Исходный CSV отсутствует или недоступен для чтения");
+  }
+  cachedCatalog = parseCatalogCsv(bytes);
   return cachedCatalog;
 }
 

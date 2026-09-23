@@ -27,6 +27,10 @@ function oneRow(overrides: Record<string, string> = {}): string {
 }
 
 describe("parseCatalogCsv", () => {
+  it.each(["", "\n", oneRow().split("\n")[0]! + "\n"])("rejects a catalog without profiles", (csv) => {
+    expect(() => parseCatalogCsv(csv)).toThrow(CatalogDataError);
+  });
+
   it("imports all 66 source profiles and converts list, null, number and boolean types", () => {
     const catalog = parseCatalogCsv(source);
     expect(catalog.profiles).toHaveLength(66);
